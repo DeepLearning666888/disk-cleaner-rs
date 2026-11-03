@@ -4,6 +4,12 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Disk space analyzer GUI with treemap and safe cleanup"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+keywords = ["disk-space", "cleanup", "gui", "egui", "windows"]
+categories = ["gui", "filesystem"]
 
 [dependencies]
 disk-core = { path = "../disk-core" }

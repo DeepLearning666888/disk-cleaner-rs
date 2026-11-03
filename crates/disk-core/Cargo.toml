@@ -4,5 +4,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 description = "Disk space scanning, rule evaluation and recycle-bin deletion core"
+repository.workspace = true
+homepage.workspace = true
+readme.workspace = true
+rust-version.workspace = true
+keywords = ["disk-space", "cleanup", "filesystem", "scan", "windows"]
+categories = ["filesystem", "development-tools"]
 
 [dependencies]

@@ -6,6 +6,10 @@ members = ["crates/disk-core", "crates/disk-app"]
 version = "0.2.0"
 edition = "2021"
 license = "MIT"
+repository = "https://github.com/DeepLearning666888/disk-cleaner-rs"
+homepage = "https://github.com/DeepLearning666888/disk-cleaner-rs"
+readme = "README.md"
+rust-version = "1.89"
 
 [profile.release]
 opt-level = 3
