@@ -1,0 +1,11 @@
+[package]
+name = "disk-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Disk space analyzer GUI with treemap and safe cleanup"
+
+[dependencies]
+disk-core = { path = "../disk-core" }
+eframe = { version = "0.32", default-features = false, features = ["glow", "default_fonts", "accesskit"] }
+rfd = "0.15"

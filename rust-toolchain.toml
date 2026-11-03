@@ -1,0 +1,5 @@
+# 本机没有 MSVC / Visual Studio Build Tools，链接需要 GNU 目标 + 便携 MinGW。
+# 固定工具链，避免默认工具链切到 msvc 后出现「找不到 link.exe / rustfmt / clippy」。
+[toolchain]
+channel = "stable-x86_64-pc-windows-gnu"
+components = ["rustfmt", "clippy"]

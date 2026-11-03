@@ -1,0 +1,6 @@
+/target
+**/.testtmp/
+
+# 本机临时日志与个人辅助脚本，不纳入仓库
+*.log
+.check-shell.ps1
