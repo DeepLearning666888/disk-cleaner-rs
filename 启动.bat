@@ -1,4 +1,5 @@
 @echo off
+chcp 65001 >nul
 setlocal
 set "PATH=%USERPROFILE%\.mingw64\bin;%USERPROFILE%\.cargo\bin;%PATH%"
 cd /d "%~dp0"
