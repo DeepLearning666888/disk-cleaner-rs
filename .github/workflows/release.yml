@@ -1,0 +1,70 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+  id-token: write
+  attestations: write
+
+jobs:
+  windows-gnu:
+    name: build / checksum / attest (windows-gnu)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      RUSTUP_TOOLCHAIN: stable-x86_64-pc-windows-gnu
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+
+      - name: Setup MingW
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
+        with:
+          msystem: MINGW64
+          update: false
+          install: mingw-w64-x86_64-gcc
+
+      - name: Add MingW to PATH
+        shell: pwsh
+        run: |
+          "C:\msys64\mingw64\bin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+      - name: Install Rust toolchain
+        shell: pwsh
+        run: |
+          rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal
+          rustc -vV
+
+      - name: Build release
+        run: cargo build --release --locked
+
+      - name: Package and checksum
+        shell: pwsh
+        run: |
+          $exe = "target\release\disk-app.exe"
+          if (-not (Test-Path $exe)) { throw "未找到 $exe" }
+          $zip = "disk-cleaner-rs-$env:GITHUB_REF_NAME-x86_64-pc-windows-gnu.zip"
+          Compress-Archive -Path $exe -DestinationPath $zip -Force
+          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
+          "$hash  $zip" | Out-File -FilePath SHA256SUMS.txt -Encoding utf8
+          Get-Content SHA256SUMS.txt
+
+      - name: Attest build provenance
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2
+        with:
+          subject-path: |
+            disk-cleaner-rs-*.zip
+            SHA256SUMS.txt
+
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $zip = (Get-ChildItem "disk-cleaner-rs-*.zip" | Select-Object -First 1).Name
+          gh release create "$env:GITHUB_REF_NAME" "$zip" SHA256SUMS.txt --generate-notes
