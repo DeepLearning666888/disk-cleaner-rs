@@ -12,6 +12,10 @@ jobs:
   check:
     name: fmt / clippy / test (windows-gnu)
     runs-on: windows-latest
+    env:
+      # runner 上的新版 rustup 不接受 rust-toolchain.toml 里带目标三元组的 channel，
+      # 用环境变量直接指定工具链，绕过该文件解析。
+      RUSTUP_TOOLCHAIN: stable-x86_64-pc-windows-gnu
     steps:
       - uses: actions/checkout@v4
 
@@ -30,8 +34,10 @@ jobs:
       - name: Install Rust toolchain
         shell: pwsh
         run: |
-          rustup show active-toolchain
+          rustup toolchain install stable-x86_64-pc-windows-gnu --profile minimal
           rustup component add rustfmt clippy
+          rustup show active-toolchain
+          rustc -vV
 
       - name: rustfmt
         run: cargo fmt --all --check
