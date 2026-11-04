@@ -18,7 +18,7 @@ jobs:
       # 用环境变量直接指定工具链，绕过该文件解析。
       RUSTUP_TOOLCHAIN: stable-x86_64-pc-windows-gnu
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -59,7 +59,7 @@ jobs:
       # 仓库的 rust-toolchain.toml 指向 Windows GNU 工具链，Linux runner 上改用默认 stable。
       RUSTUP_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
