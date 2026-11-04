@@ -70,7 +70,7 @@ jobs:
 
       - name: 检查依赖来源（仅允许 crates.io）
         run: |
-          bad=$(grep -E '^source = "' Cargo.lock | grep -v 'registry+https://github.com/rust-lang/crates.io-index')
+          bad=$(grep -E '^source = "' Cargo.lock | grep -v 'registry+https://github.com/rust-lang/crates.io-index' || true)
           if [ -n "$bad" ]; then
             echo "发现非 crates.io 的依赖来源："
             echo "$bad"
