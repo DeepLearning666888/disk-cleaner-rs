@@ -12,15 +12,18 @@ jobs:
   check:
     name: fmt / clippy / test (windows-gnu)
     runs-on: windows-latest
+    timeout-minutes: 20
     env:
       # runner 上的新版 rustup 不接受 rust-toolchain.toml 里带目标三元组的 channel，
       # 用环境变量直接指定工具链，绕过该文件解析。
       RUSTUP_TOOLCHAIN: stable-x86_64-pc-windows-gnu
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Setup MingW
-        uses: msys2/setup-msys2@v2
+        uses: msys2/setup-msys2@ec48f7c5447b3140e2b088413ae3a55687bccb6e # v2
         with:
           msystem: MINGW64
           update: false
@@ -43,24 +46,37 @@ jobs:
         run: cargo fmt --all --check
 
       - name: clippy
-        run: cargo clippy --workspace --all-targets -- -D warnings
+        run: cargo clippy --workspace --all-targets --locked -- -D warnings
 
       - name: test
-        run: cargo test --workspace
+        run: cargo test --workspace --locked
 
   audit:
     name: cargo-audit (dependencies)
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     env:
       # 仓库的 rust-toolchain.toml 指向 Windows GNU 工具链，Linux runner 上改用默认 stable。
       RUSTUP_TOOLCHAIN: stable
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
 
       - name: Install cargo-audit
-        uses: taiki-e/install-action@v2
+        uses: taiki-e/install-action@b80e2bb2635f28eb98b9fce1e2f0887e1535c6b2 # v2
         with:
           tool: cargo-audit
+
+      - name: 检查依赖来源（仅允许 crates.io）
+        run: |
+          bad=$(grep -E '^source = "' Cargo.lock | grep -v 'registry+https://github.com/rust-lang/crates.io-index')
+          if [ -n "$bad" ]; then
+            echo "发现非 crates.io 的依赖来源："
+            echo "$bad"
+            exit 1
+          fi
+          echo "依赖来源检查通过"
 
       - name: Audit Cargo.lock
         run: cargo-audit audit
