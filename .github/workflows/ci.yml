@@ -47,3 +47,20 @@ jobs:
 
       - name: test
         run: cargo test --workspace
+
+  audit:
+    name: cargo-audit (dependencies)
+    runs-on: ubuntu-latest
+    env:
+      # 仓库的 rust-toolchain.toml 指向 Windows GNU 工具链，Linux runner 上改用默认 stable。
+      RUSTUP_TOOLCHAIN: stable
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cargo-audit
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-audit
+
+      - name: Audit Cargo.lock
+        run: cargo-audit audit
