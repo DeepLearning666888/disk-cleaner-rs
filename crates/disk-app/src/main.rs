@@ -2,6 +2,7 @@
 
 mod app;
 mod cleanup_view;
+mod logging;
 mod treemap_view;
 
 use std::sync::Arc;
@@ -10,18 +11,37 @@ use app::DiskApp;
 use eframe::egui;
 
 fn main() {
+    logging::init();
     let args: Vec<String> = std::env::args().collect();
     if args.len() >= 3 && args[1] == "--scan" {
         #[cfg(windows)]
         attach_parent_console();
+        log_start("headless");
         run_headless(&args[2]);
         return;
     }
     let initial = args.get(1).filter(|arg| !arg.starts_with("--")).cloned();
+    log_start("gui");
     if let Err(error) = run_gui(initial) {
+        logging::event(
+            logging::Level::Error,
+            "startup_error",
+            &[("error", logging::Value::Str(&error.to_string()))],
+        );
         eprintln!("启动失败：{error}");
         std::process::exit(1);
     }
+}
+
+fn log_start(mode: &str) {
+    logging::event(
+        logging::Level::Info,
+        "app_start",
+        &[
+            ("mode", logging::Value::Str(mode)),
+            ("version", logging::Value::Str(env!("CARGO_PKG_VERSION"))),
+        ],
+    );
 }
 
 /// 发布版是 GUI 子系统，默认没有控制台，`println!` 会无处可写。
@@ -38,9 +58,30 @@ fn attach_parent_console() {
 
 /// 无界面扫描，便于在没有图形环境时验证核心流程。
 fn run_headless(path: &str) {
+    logging::event(
+        logging::Level::Info,
+        "scan_start",
+        &[("root", logging::Value::Str(path))],
+    );
     let progress = Arc::new(disk_core::ScanProgress::new());
     match disk_core::scan(std::path::Path::new(path), progress) {
         Ok(tree) => {
+            logging::event(
+                logging::Level::Info,
+                "scan_done",
+                &[
+                    ("root", logging::Value::Str(&tree.root_path)),
+                    ("files", logging::Value::Num(tree.total_files())),
+                    ("dirs", logging::Value::Num(tree.dir_count())),
+                    ("bytes", logging::Value::Num(tree.total_size())),
+                    ("skipped_links", logging::Value::Num(tree.skipped_links)),
+                    ("read_errors", logging::Value::Num(tree.read_error_count)),
+                    (
+                        "elapsed_ms",
+                        logging::Value::Num(tree.elapsed.as_millis() as u64),
+                    ),
+                ],
+            );
             println!("根目录: {}", tree.root_path);
             println!("总大小: {}", disk_core::format_size(tree.total_size()));
             println!("文件数: {}", tree.total_files());
@@ -58,6 +99,14 @@ fn run_headless(path: &str) {
             }
         }
         Err(error) => {
+            logging::event(
+                logging::Level::Error,
+                "scan_error",
+                &[
+                    ("root", logging::Value::Str(path)),
+                    ("error", logging::Value::Str(&error.to_string())),
+                ],
+            );
             eprintln!("扫描失败：{error}");
             std::process::exit(1);
         }

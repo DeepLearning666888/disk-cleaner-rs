@@ -8,6 +8,7 @@ use disk_core::{format_size, NodeKind, ScanError, ScanProgress, Tree, NO_PARENT}
 use eframe::egui::{self, Color32, RichText};
 
 use crate::cleanup_view::CleanupPanel;
+use crate::logging::{self, Level, Value};
 use crate::treemap_view;
 
 // 设计令牌：背景自深到浅分三层（窗口 → 面板 → 卡片），前景分正文与次要两层。
@@ -164,6 +165,7 @@ impl DiskApp {
             return;
         }
 
+        logging::event(Level::Info, "scan_start", &[("root", Value::Str(&raw))]);
         let progress = Arc::new(ScanProgress::new());
         let (tx, rx) = mpsc::channel();
         let worker_progress = Arc::clone(&progress);
@@ -204,6 +206,19 @@ impl DiskApp {
                     tree.total_files(),
                     tree.elapsed.as_secs_f64()
                 );
+                logging::event(
+                    Level::Info,
+                    "scan_done",
+                    &[
+                        ("root", Value::Str(&tree.root_path)),
+                        ("files", Value::Num(tree.total_files())),
+                        ("dirs", Value::Num(tree.dir_count())),
+                        ("bytes", Value::Num(tree.total_size())),
+                        ("skipped_links", Value::Num(tree.skipped_links)),
+                        ("read_errors", Value::Num(tree.read_error_count)),
+                        ("elapsed_ms", Value::Num(tree.elapsed.as_millis() as u64)),
+                    ],
+                );
                 self.path_input = tree.root_path.clone();
                 self.current = 0;
                 self.selected = None;
@@ -215,8 +230,18 @@ impl DiskApp {
                 self.cleanup.invalidate();
                 self.toast(summary);
             }
-            Err(ScanError::Cancelled) => self.toast("扫描已取消"),
-            Err(error) => self.toast(format!("扫描失败：{error}")),
+            Err(ScanError::Cancelled) => {
+                logging::event(Level::Warn, "scan_cancel", &[]);
+                self.toast("扫描已取消");
+            }
+            Err(error) => {
+                logging::event(
+                    Level::Error,
+                    "scan_error",
+                    &[("error", Value::Str(&error.to_string()))],
+                );
+                self.toast(format!("扫描失败：{error}"));
+            }
         }
     }
 
@@ -298,6 +323,14 @@ impl DiskApp {
         self.selected = None;
         self.hovered = None;
         self.results.clear();
+        logging::event(
+            Level::Info,
+            "delete_batch",
+            &[
+                ("count", Value::Num(count as u64)),
+                ("freed_bytes", Value::Num(freed)),
+            ],
+        );
         self.toast(format!(
             "已移入回收站 {} 项，释放 {}",
             count,
@@ -322,6 +355,11 @@ impl DiskApp {
 
         match disk_core::recycle(std::path::Path::new(&path)) {
             Ok(()) => {
+                logging::event(
+                    Level::Info,
+                    "delete_ok",
+                    &[("name", Value::Str(&name)), ("path", Value::Str(&path))],
+                );
                 if let Some(tree) = self.tree.as_mut() {
                     tree.detach(id);
                 }
@@ -336,7 +374,17 @@ impl DiskApp {
                 self.cleanup.invalidate();
                 self.toast(format!("已移入回收站：{}", name));
             }
-            Err(error) => self.toast(format!("删除失败：{}", error)),
+            Err(error) => {
+                logging::event(
+                    Level::Warn,
+                    "delete_error",
+                    &[
+                        ("path", Value::Str(&path)),
+                        ("error", Value::Str(&error.to_string())),
+                    ],
+                );
+                self.toast(format!("删除失败：{}", error))
+            }
         }
     }
 
