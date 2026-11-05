@@ -1,2 +1,4 @@
 [target.x86_64-pc-windows-gnu]
 linker = "x86_64-w64-mingw32-gcc"
+# 不把构建时间写入 PE 头，使产物可复现（便于第三方校验与投毒检测）
+rustflags = ["-C", "link-arg=-Wl,--no-insert-timestamp"]
