@@ -47,7 +47,7 @@ gh attestation verify .\disk-cleaner-rs-*-x86_64-pc-windows-gnu.zip -R DeepLearn
 
 未通过以上两步校验的二进制不要运行。
 
-可复现性说明：构建时已关闭 PE 时间戳写入（`-Wl,--no-insert-timestamp`），**同一工具链、同一环境**重复构建可得到相同字节；跨机器因 MinGW-w64 与系统环境差异，不保证字节一致。
+可复现性说明：构建时已关闭 PE 时间戳写入（`-Wl,--no-insert-timestamp`），同一缓存下重复构建（增量重建）可得到相同字节；但冷构建（清空 `target` 后重建）与跨机器构建不保证字节一致，原因是 rustc 冷构建会生成随机临时目录名并写入产物符号表，该差异无法通过编译器参数消除。
 
 ## 质量检查
 
