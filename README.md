@@ -33,6 +33,22 @@ cargo build --release
 
 也可以直接双击 `启动.bat`：已构建时直接启动，否则先编译。
 
+## 校验下载的二进制（防篡改）
+
+发布产物同时提供 `SHA256SUMS.txt` 与构建来源证明（GitHub Artifact Attestation），来源证明绑定到本仓库的 Release 工作流。
+
+```powershell
+# 1. 校验文件完整性：输出哈希需与 SHA256SUMS.txt 中的值一致
+Get-FileHash .\disk-cleaner-rs-*-x86_64-pc-windows-gnu.zip -Algorithm SHA256
+
+# 2. 校验来源证明：确认产物由本仓库的 GitHub Actions 构建（需已登录 gh）
+gh attestation verify .\disk-cleaner-rs-*-x86_64-pc-windows-gnu.zip -R DeepLearning666888/disk-cleaner-rs
+```
+
+未通过以上两步校验的二进制不要运行。
+
+可复现性说明：构建时已关闭 PE 时间戳写入（`-Wl,--no-insert-timestamp`），**同一工具链、同一环境**重复构建可得到相同字节；跨机器因 MinGW-w64 与系统环境差异，不保证字节一致。
+
 ## 质量检查
 
 ```powershell
