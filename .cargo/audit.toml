@@ -1,0 +1,17 @@
+# cargo-audit 配置（CI 的 audit job 在仓库根读取此文件）。
+# 目的：显式记录并忽略已知、短期无法修复的传递依赖告警。
+# 约定：若出现新的 vulnerability（非 unmaintained / yanked），必须单独评估，
+# 不得引用本清单放过。
+
+[advisories]
+# 以下均为 unmaintained（维护者停止维护，无已知可利用漏洞），且均为传递依赖，
+# 受 eframe 0.32.3 / rfd 0.15.4 版本锁定，短期无法升级。
+ignore = [
+    "RUSTSEC-2026-0192", # ttf-parser 0.25.1
+    "RUSTSEC-2026-0371", # zbus_names 4.3.5
+    "RUSTSEC-2026-0370", # zvariant 5.15.1
+    "RUSTSEC-2026-0372", # zvariant_derive 5.15.1
+]
+
+# yanked 检查保持默认开启：async-executor 1.14.0（yanked，无 advisory ID）无法按
+# crate 精确忽略（cargo-audit 不支持），保留为黄色注解、不影响 CI 退出码。

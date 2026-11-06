@@ -57,6 +57,15 @@ cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 ```
 
+## 依赖安全审计
+
+CI 会执行 `cargo-audit audit` 检查 `Cargo.lock`，已知的传递依赖告警在 `.cargo/audit.toml` 中维护：
+
+- 4 条 `unmaintained`（ttf-parser、zbus_names、zvariant、zvariant_derive）按 RUSTSEC ID 显式忽略——均为传递依赖、无已知可利用漏洞，且受 eframe / rfd 版本锁定短期无法升级；
+- `async-executor 1.14.0`（yanked）保留告警：cargo-audit 不支持按 crate 精确忽略 yanked，整体关闭检查会失去对未来新 yank 的感知，故仅显示为黄色注解，不影响 CI 结果。
+
+约定：若出现新的 vulnerability（非 unmaintained / yanked），必须单独评估，不得引用以上清单放过；上游升级后应及时移除对应忽略项。
+
 ## 目录结构
 
 ```text
