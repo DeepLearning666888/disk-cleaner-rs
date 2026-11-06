@@ -53,7 +53,9 @@ jobs:
 
   audit:
     name: cargo-audit (dependencies)
-    runs-on: ubuntu-latest
+    # 固定到 24.04：GitHub 宣布 ubuntu-latest 将从 2026-10-19 起迁移到 Ubuntu 26，
+    # 固定版本避免迁移带来的不确定变更。
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       # 仓库的 rust-toolchain.toml 指向 Windows GNU 工具链，Linux runner 上改用默认 stable。
