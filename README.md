@@ -1,5 +1,7 @@
 # disk-cleaner-rs
 
+[![release](https://img.shields.io/github/v/tag/DeepLearning666888/disk-cleaner-rs?label=release)](https://github.com/DeepLearning666888/disk-cleaner-rs/releases/latest) [![build](https://img.shields.io/github/actions/workflow/status/DeepLearning666888/disk-cleaner-rs/release.yml?branch=main&label=build)](https://github.com/DeepLearning666888/disk-cleaner-rs/actions/workflows/release.yml) [![license](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 Windows 磁盘空间分析与清理工具。扫描目录占用，用矩形树图展示空间分布，按规则给出清理建议；所有删除操作一律移入回收站。
 
 ## 功能
@@ -16,6 +18,18 @@ Windows 磁盘空间分析与清理工具。扫描目录占用，用矩形树图
 - 删除通过回收站完成，可在资源管理器中还原。
 - 内置受保护路径拦截：`C:\`、`C:\Windows`、`C:\Program Files`、`C:\ProgramData`、用户目录整体等会被拒绝。
 - 删除前展示目标清单，需要显式确认。
+
+## 下载安装（推荐）
+
+无需安装 Rust 工具链，直接使用预构建版本：
+
+1. 前往 [Releases](https://github.com/DeepLearning666888/disk-cleaner-rs/releases/latest) 页面，下载最新版本的 `disk-cleaner-rs-<版本号>-x86_64-pc-windows-gnu.zip` 与同目录下的 `SHA256SUMS.txt`
+2. 按下文「校验下载的二进制」完成 SHA256 与来源证明两步校验
+3. 校验通过后解压，运行其中的 `disk-app.exe` 即可
+
+Windows 可能弹出 SmartScreen「未知发布者」提示：本工具未做代码签名，若信任该来源可选择「仍要运行」；有疑虑可参考下一节自行构建。
+
+发布与版本约定：发布版本统一使用 `v` 前缀语义化 tag（如 `v0.1.0`），推送 tag 后由 GitHub Actions 自动构建并创建 Release，不混用其他前缀的 tag。
 
 ## 环境要求
 
@@ -35,7 +49,7 @@ cargo build --release
 
 ## 校验下载的二进制（防篡改）
 
-发布产物同时提供 `SHA256SUMS.txt` 与构建来源证明（GitHub Artifact Attestation），来源证明绑定到本仓库的 Release 工作流。
+Release 页面下载的 zip 与仓库构建产物为同一来源，均适用以下两步校验。发布产物同时提供 `SHA256SUMS.txt` 与构建来源证明（GitHub Artifact Attestation），来源证明绑定到本仓库的 Release 工作流。
 
 ```powershell
 # 1. 校验文件完整性：输出哈希需与 SHA256SUMS.txt 中的值一致
