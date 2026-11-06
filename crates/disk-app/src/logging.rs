@@ -1,7 +1,7 @@
 //! 极简结构化日志：每条一行 JSON，写入 `%LOCALAPPDATA%\disk-cleaner-rs\logs\app.log`。
 //!
 //! 不引入第三方依赖。发布版是 GUI 子系统、没有控制台，日志文件是唯一的现场取证手段；
-//! 初始化或写入失败时静默降级，绝不影响主流程。
+//! 日志自身出错时把错误追加到同目录 `log-error.txt`，随后降级，绝不影响主流程。
 
 use std::fs::{File, OpenOptions};
 use std::io::Write;
@@ -51,13 +51,21 @@ struct Logger {
 
 static LOGGER: OnceLock<Option<Logger>> = OnceLock::new();
 
-/// 初始化日志。重复调用无副作用；失败时静默降级为无操作。
+/// 初始化日志。重复调用无副作用；失败时错误落盘 `log-error.txt` 并降级为无操作。
 pub(crate) fn init() {
     LOGGER.get_or_init(|| match Logger::open() {
         Ok(logger) => Some(logger),
-        Err(error) => {
-            eprintln!("日志初始化失败：{error}");
-            None
+        Err(first) => {
+            // 打开失败可能是瞬态的（杀毒/索引器短暂占用），重试一次；
+            // 每次失败都先落盘取证——GUI 子系统的 eprintln! 会无处可见。
+            report_error(&format!("日志初始化失败（第 1 次）：{first}"));
+            match Logger::open() {
+                Ok(logger) => Some(logger),
+                Err(second) => {
+                    report_error(&format!("日志初始化失败（第 2 次）：{second}"));
+                    None
+                }
+            }
         }
     });
 }
@@ -103,17 +111,43 @@ impl Logger {
 
     fn write(&self, line: &str) {
         let Ok(mut guard) = self.inner.lock() else {
+            // 锁失败说明内部状态已毒化，拿不到文件句柄，本行只能丢弃并记录。
+            report_error(&format!("写日志失败：内部锁异常，本行已丢弃：{line}"));
             return;
         };
         let (file, written) = &mut *guard;
         if *written + line.len() as u64 > MAX_BYTES {
             self.rotate(file, written);
         }
-        if let Err(error) = file.write_all(line.as_bytes()) {
-            eprintln!("写日志失败：{error}");
-            return;
+        if let Err(first) = file.write_all(line.as_bytes()) {
+            // 写失败可能是文件句柄失效（被外部删除/重命名），重开文件重写一次。
+            match self.reopen(file) {
+                Ok(length) => {
+                    *written = length;
+                    if let Err(second) = file.write_all(line.as_bytes()) {
+                        report_error(&format!(
+                            "写日志失败（重开重写后仍失败）：{first}；{second}"
+                        ));
+                        return;
+                    }
+                }
+                Err(error) => {
+                    report_error(&format!("写日志失败：{first}；重开文件失败：{error}"));
+                    return;
+                }
+            }
         }
         *written += line.len() as u64;
+    }
+
+    /// 重新打开日志文件（追加模式），返回新文件的实际长度，
+    /// 供写失败后校准 `written` 计数（文件被外部删除重建后旧计数会失真）。
+    fn reopen(&self, file: &mut File) -> std::io::Result<u64> {
+        *file = OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&self.path)?;
+        Ok(file.metadata().map(|meta| meta.len()).unwrap_or(0))
     }
 
     /// 滚动规则：`app.log.2 → app.log.3`、`app.log.1 → app.log.2`、`app.log → app.log.1`。
@@ -128,10 +162,29 @@ impl Logger {
             .open(&self.path)
         {
             Ok(fresh) => *file = fresh,
-            Err(error) => eprintln!("日志滚动失败：{error}"),
+            Err(error) => report_error(&format!("日志滚动失败：{error}")),
         }
         *written = 0;
     }
+}
+
+/// 错误落盘通道：把日志自身的故障追加到日志目录下的 `log-error.txt`。
+/// GUI 子系统没有控制台，`eprintln!` 会无处可写，这里是唯一的现场取证手段。
+/// 本函数自身失败（目录不可写等）就静默放弃，绝不递归、绝不 panic。
+fn report_error(message: &str) {
+    let path = log_path().with_file_name("log-error.txt");
+    if let Some(dir) = path.parent() {
+        let _ = std::fs::create_dir_all(dir);
+    }
+    let Ok(mut file) = OpenOptions::new().create(true).append(true).open(&path) else {
+        return;
+    };
+    let mut line = String::with_capacity(message.len() + 32);
+    line.push_str(&iso8601_utc(SystemTime::now()));
+    line.push_str("  ");
+    line.push_str(message);
+    line.push('\n');
+    let _ = file.write_all(line.as_bytes());
 }
 
 fn log_path() -> PathBuf {
