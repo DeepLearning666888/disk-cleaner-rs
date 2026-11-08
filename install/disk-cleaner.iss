@@ -28,7 +28,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 Compression=lzma2
 SolidCompression=yes
 WizardStyle=modern
-OutputDir=.
+; OutputDir 相对本脚本所在目录，.. 即仓库根目录（打包与发布步骤均从根目录取产物）。
+OutputDir=..
 OutputBaseFilename=disk-cleaner-rs-setup-{#SetupSuffix}-x86_64
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
