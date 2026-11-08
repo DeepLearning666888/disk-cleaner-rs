@@ -23,11 +23,13 @@ Windows 磁盘空间分析与清理工具。扫描目录占用，用矩形树图
 
 无需安装 Rust 工具链，直接使用预构建版本：
 
-1. 前往 [Releases](https://github.com/DeepLearning666888/disk-cleaner-rs/releases/latest) 页面，下载最新版本的 `disk-cleaner-rs-<版本号>-x86_64-pc-windows-gnu.zip` 与同目录下的 `SHA256SUMS.txt`
-2. 按下文「校验下载的二进制」完成 SHA256 与来源证明两步校验
-3. 校验通过后解压，运行其中的 `disk-app.exe` 即可
+1. 前往 [Releases](https://github.com/DeepLearning666888/disk-cleaner-rs/releases/latest) 页面按需下载（二选一）：
+   - 安装包（推荐）：`disk-cleaner-rs-setup-<版本号>-x86_64.exe`，双击运行安装向导；每用户安装到 `%LOCALAPPDATA%\Programs\disk-cleaner-rs`，无需管理员权限，可添加开始菜单快捷方式，可随时卸载
+   - 便携版：`disk-cleaner-rs-<版本号>-x86_64-pc-windows-gnu.zip`，解压后直接运行
+2. 按下文「校验下载的二进制」对所选产物完成 SHA256 与来源证明两步校验
+3. 校验通过后运行安装包安装，或解压 zip 运行 `disk-app.exe`
 
-Windows 可能弹出 SmartScreen「未知发布者」提示：本工具未做代码签名，若信任该来源可选择「仍要运行」；有疑虑可参考下一节自行构建。
+Windows 可能弹出 SmartScreen「未知发布者」提示：安装包与便携版均未做代码签名，若信任该来源可选择「仍要运行」；有疑虑可参考下一节自行构建。
 
 发布与版本约定：发布版本统一使用 `v` 前缀语义化 tag（如 `v0.1.0`），推送 tag 后由 GitHub Actions 自动构建并创建 Release，不混用其他前缀的 tag。
 
@@ -49,13 +51,15 @@ cargo build --release
 
 ## 校验下载的二进制（防篡改）
 
-Release 页面下载的 zip 与仓库构建产物为同一来源，均适用以下两步校验。发布产物同时提供 `SHA256SUMS.txt` 与构建来源证明（GitHub Artifact Attestation），来源证明绑定到本仓库的 Release 工作流。
+Release 页面下载的安装包与 zip 为同一批构建产物，均适用以下两步校验。发布产物同时提供 `SHA256SUMS.txt`（每个产物一行哈希）与构建来源证明（GitHub Artifact Attestation），来源证明绑定到本仓库的 Release 工作流。
 
 ```powershell
-# 1. 校验文件完整性：输出哈希需与 SHA256SUMS.txt 中的值一致
-Get-FileHash .\disk-cleaner-rs-*-x86_64-pc-windows-gnu.zip -Algorithm SHA256
+# 1. 校验文件完整性：输出哈希需与 SHA256SUMS.txt 中对应行一致
+Get-FileHash .\disk-cleaner-rs-setup-*-x86_64.exe -Algorithm SHA256                 # 安装包
+Get-FileHash .\disk-cleaner-rs-*-x86_64-pc-windows-gnu.zip -Algorithm SHA256        # 便携版 zip
 
 # 2. 校验来源证明：确认产物由本仓库的 GitHub Actions 构建（需已登录 gh）
+gh attestation verify .\disk-cleaner-rs-setup-*-x86_64.exe -R DeepLearning666888/disk-cleaner-rs
 gh attestation verify .\disk-cleaner-rs-*-x86_64-pc-windows-gnu.zip -R DeepLearning666888/disk-cleaner-rs
 ```
 

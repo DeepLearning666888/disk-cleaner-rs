@@ -3,7 +3,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
-  # 手动演练：只构建、打包、出校验和、做来源证明，并上传为 Actions 产物；
+  # 手动演练：只构建（含安装包）、打包、出校验和、做来源证明，并上传为 Actions 产物；
   # 不创建 tag、不创建 Release，因此不会对外公开任何东西。
   workflow_dispatch:
 
@@ -46,6 +46,21 @@ jobs:
       - name: Build release
         run: cargo build --release --locked
 
+      - name: Build installer (Inno Setup)
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+          $iscc = "C:\Program Files (x86)\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) {
+            $iscc = (Get-ChildItem "C:\Program Files (x86)\Inno Setup*\ISCC.exe" | Select-Object -First 1).FullName
+          }
+          if (-not $iscc) { throw "未找到 ISCC.exe" }
+          $refName = if ($env:GITHUB_REF_TYPE -eq "tag") { $env:GITHUB_REF_NAME } else { "rehearsal-$env:GITHUB_RUN_NUMBER" }
+          $ver = if ($env:GITHUB_REF_TYPE -eq "tag") { $env:GITHUB_REF_NAME -replace '^v','' } else { "0.0.0" }
+          & $iscc "/DMyAppVersion=$ver" "/DSetupSuffix=$refName" install\disk-cleaner.iss
+          if ($LASTEXITCODE -ne 0) { throw "ISCC 编译失败，退出码 $LASTEXITCODE" }
+          Get-ChildItem "disk-cleaner-rs-setup-*.exe"
+
       - name: Package and checksum
         shell: pwsh
         run: |
@@ -54,8 +69,11 @@ jobs:
           $refName = if ($env:GITHUB_REF_TYPE -eq "tag") { $env:GITHUB_REF_NAME } else { "rehearsal-$env:GITHUB_RUN_NUMBER" }
           $zip = "disk-cleaner-rs-$refName-x86_64-pc-windows-gnu.zip"
           Compress-Archive -Path $exe -DestinationPath $zip -Force
-          $hash = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
-          "$hash  $zip" | Out-File -FilePath SHA256SUMS.txt -Encoding utf8
+          $setup = "disk-cleaner-rs-setup-$refName-x86_64.exe"
+          if (-not (Test-Path $setup)) { throw "未找到 $setup" }
+          $hashZip = (Get-FileHash -Algorithm SHA256 $zip).Hash.ToLower()
+          $hashSetup = (Get-FileHash -Algorithm SHA256 $setup).Hash.ToLower()
+          @("$hashZip  $zip", "$hashSetup  $setup") | Out-File -FilePath SHA256SUMS.txt -Encoding utf8
           Get-Content SHA256SUMS.txt
 
       - name: Attest build provenance
@@ -63,6 +81,7 @@ jobs:
         with:
           subject-path: |
             disk-cleaner-rs-*.zip
+            disk-cleaner-rs-setup-*.exe
             SHA256SUMS.txt
 
       - name: Upload rehearsal artifacts
@@ -72,6 +91,7 @@ jobs:
           name: rehearsal-build
           path: |
             disk-cleaner-rs-*.zip
+            disk-cleaner-rs-setup-*.exe
             SHA256SUMS.txt
           retention-days: 7
 
@@ -83,4 +103,5 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           $zip = (Get-ChildItem "disk-cleaner-rs-*.zip" | Select-Object -First 1).Name
-          gh release create "$env:GITHUB_REF_NAME" "$zip" SHA256SUMS.txt --generate-notes
+          $setup = (Get-ChildItem "disk-cleaner-rs-setup-*.exe" | Select-Object -First 1).Name
+          gh release create "$env:GITHUB_REF_NAME" "$zip" "$setup" SHA256SUMS.txt --generate-notes
