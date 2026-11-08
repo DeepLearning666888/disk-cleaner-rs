@@ -33,7 +33,8 @@ OutputBaseFilename=disk-cleaner-rs-setup-{#SetupSuffix}-x86_64
 UninstallDisplayIcon={app}\{#MyAppExeName}
 
 [Languages]
-Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+; 语言文件来自 Inno Setup 官方仓库（jrsoftware/issrc，Files\Languages\ChineseSimplified.isl，6.5.0+）。
+Name: "chinesesimplified"; MessagesFile: "Languages\ChineseSimplified.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
