@@ -116,11 +116,8 @@ pub fn draw(
         }
 
         if tile.width() > 42.0 && tile.height() > 16.0 {
-            let font_size = if tile.width() > 170.0 && tile.height() > 60.0 {
-                FONT_BODY
-            } else {
-                FONT_SMALL
-            };
+            // 字号随格子尺寸缩放：小格子保持最小字号，大格子文字放大但有上限。
+            let font_size = (tile.width().min(tile.height()) * 0.22).clamp(FONT_SMALL, 36.0);
             let char_width = font_size * 0.62;
             let max_chars = (((tile.width() - 8.0) / char_width).floor() as usize).max(1);
             let label = truncate(&node.name, max_chars);
@@ -132,11 +129,12 @@ pub fn draw(
                 TEXT,
             );
             if tile.height() > 36.0 {
+                let size_font = (font_size * 0.72).clamp(FONT_SMALL, 24.0);
                 painter.text(
                     tile.min + egui::vec2(SPACE_XS, SPACE_XS + font_size + SPACE_XS),
                     Align2::LEFT_TOP,
                     format_size(node.size),
-                    FontId::proportional(FONT_SMALL),
+                    FontId::proportional(size_font),
                     MUTED,
                 );
             }
