@@ -76,6 +76,11 @@ pub struct DiskApp {
     current: u32,
     selected: Option<u32>,
     hovered: Option<u32>,
+    /// 树图的缩放/平移状态。
+    treemap: treemap_view::ViewState,
+    /// 目录导航历史：后退 / 前进。
+    back_stack: Vec<u32>,
+    forward_stack: Vec<u32>,
     scan: Option<ScanHandle>,
     side_tab: SideTab,
     query: String,
@@ -106,6 +111,9 @@ impl DiskApp {
             current: 0,
             selected: None,
             hovered: None,
+            treemap: treemap_view::ViewState::default(),
+            back_stack: Vec::new(),
+            forward_stack: Vec::new(),
             scan: None,
             side_tab: SideTab::Top,
             query: String::new(),
@@ -223,6 +231,9 @@ impl DiskApp {
                 self.current = 0;
                 self.selected = None;
                 self.hovered = None;
+                self.back_stack.clear();
+                self.forward_stack.clear();
+                self.treemap.reset();
                 self.results.clear();
                 self.query.clear();
                 self.top_files = top;
@@ -246,6 +257,11 @@ impl DiskApp {
     }
 
     fn set_current(&mut self, id: u32) {
+        if id != self.current {
+            self.back_stack.push(self.current);
+            self.forward_stack.clear();
+            self.treemap.reset();
+        }
         self.current = id;
         self.selected = Some(id);
         self.hovered = None;
@@ -253,6 +269,36 @@ impl DiskApp {
         self.query.clear();
         if let Some(tree) = &self.tree {
             self.top_files = tree.top_files(id, 80);
+        }
+    }
+
+    fn go_back(&mut self) {
+        if let Some(previous) = self.back_stack.pop() {
+            self.forward_stack.push(self.current);
+            self.current = previous;
+            self.selected = None;
+            self.hovered = None;
+            self.results.clear();
+            self.query.clear();
+            if let Some(tree) = &self.tree {
+                self.top_files = tree.top_files(previous, 80);
+            }
+            self.treemap.reset();
+        }
+    }
+
+    fn go_forward(&mut self) {
+        if let Some(next) = self.forward_stack.pop() {
+            self.back_stack.push(self.current);
+            self.current = next;
+            self.selected = None;
+            self.hovered = None;
+            self.results.clear();
+            self.query.clear();
+            if let Some(tree) = &self.tree {
+                self.top_files = tree.top_files(next, 80);
+            }
+            self.treemap.reset();
         }
     }
 
@@ -366,6 +412,9 @@ impl DiskApp {
                 self.current = new_current;
                 self.selected = None;
                 self.hovered = None;
+                self.back_stack.clear();
+                self.forward_stack.clear();
+                self.treemap.reset();
                 self.results.clear();
                 self.query.clear();
                 if let Some(tree) = self.tree.as_ref() {
@@ -920,10 +969,27 @@ impl DiskApp {
                 }
 
                 let mut goto = None;
+                let mut go_back = false;
+                let mut go_forward = false;
                 {
                     let tree = self.tree.as_ref().unwrap();
                     let ancestors = tree.ancestors(self.current);
                     ui.horizontal_wrapped(|ui| {
+                        if ui
+                            .add_enabled(!self.back_stack.is_empty(), egui::Button::new("◀"))
+                            .on_hover_text("后退 (Alt+←)")
+                            .clicked()
+                        {
+                            go_back = true;
+                        }
+                        if ui
+                            .add_enabled(!self.forward_stack.is_empty(), egui::Button::new("▶"))
+                            .on_hover_text("前进 (Alt+→)")
+                            .clicked()
+                        {
+                            go_forward = true;
+                        }
+                        ui.separator();
                         if ui
                             .add_enabled(self.current != 0, egui::Button::new("上一级"))
                             .clicked()
@@ -963,24 +1029,37 @@ impl DiskApp {
                 if let Some(id) = goto {
                     self.set_current(id);
                 }
+                if go_back {
+                    self.go_back();
+                }
+                if go_forward {
+                    self.go_forward();
+                }
                 ui.add_space(SPACE_XS);
 
                 let mut hovered = self.hovered;
                 let clicked = {
                     let tree = self.tree.as_ref().unwrap();
-                    treemap_view::draw(ui, tree, self.current, self.selected, &mut hovered)
+                    treemap_view::draw(
+                        ui,
+                        tree,
+                        self.current,
+                        self.selected,
+                        &mut hovered,
+                        &mut self.treemap,
+                    )
                 };
                 self.hovered = hovered;
-                if let Some(id) = clicked {
+                if let Some(interaction) = clicked {
                     let is_dir = self
                         .tree
                         .as_ref()
-                        .map(|tree| tree.node(id).kind == NodeKind::Dir)
+                        .map(|tree| tree.node(interaction.id).kind == NodeKind::Dir)
                         .unwrap_or(false);
-                    if is_dir {
-                        self.set_current(id);
+                    if interaction.double && is_dir {
+                        self.set_current(interaction.id);
                     } else {
-                        self.selected = Some(id);
+                        self.selected = Some(interaction.id);
                     }
                 }
             });
@@ -1025,7 +1104,8 @@ impl DiskApp {
             .show(ctx, |ui| {
                 ui.label("· 选择目录后点击「开始扫描」，左侧会按占用面积生成矩形树图。");
                 ui.label("· 方块面积与目录/文件大小成正比，越大越接近正方形。");
-                ui.label("· 点击文件夹方块进入下一层，面包屑或「上一级」返回。");
+                ui.label("· 双击文件夹方块进入下一层，单击为选中；滚轮放大、拖动平移。");
+                ui.label("· 「◀」「▶」或 Alt+← / Alt+→ 在浏览历史中后退、前进。");
                 ui.label("· 右侧可查看选中项详情、当前目录的大文件，并支持按名称搜索。");
                 ui.label("· 「导出当前目录 CSV」会把直属子项清单保存为 UTF-8 BOM 文件。");
                 ui.label("· 详情中的「移入回收站」会先弹出确认框，成功后从当前统计里移除该项。");
@@ -1073,6 +1153,14 @@ impl eframe::App for DiskApp {
                 .input(|i| i.key_pressed(egui::Key::Backspace) || i.key_pressed(egui::Key::Escape))
         {
             self.go_up();
+        }
+        if !self.show_help && self.pending_delete.is_none() && !ctx.wants_keyboard_input() {
+            if ctx.input(|i| i.modifiers.alt && i.key_pressed(egui::Key::ArrowLeft)) {
+                self.go_back();
+            }
+            if ctx.input(|i| i.modifiers.alt && i.key_pressed(egui::Key::ArrowRight)) {
+                self.go_forward();
+            }
         }
 
         self.poll_scan();
